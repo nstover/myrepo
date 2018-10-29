@@ -1,1 +1,1 @@
-Personal Project and Portfolio
+Personal Projects and Portfolio
