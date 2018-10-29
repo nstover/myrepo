@@ -1,0 +1,126 @@
+---
+title: "New York City Job Openings!"
+author: "Nicholas Stover"
+date: "October 25, 2018"
+output: 
+  html_document:
+    theme: readable
+    code_folding: hide
+---
+
+
+# Background
+New York City is my wife's dream life location! I support this location. I found some data on kaggle.com that has job openings! This will be an exciting project. I want to analyze this data and see what I can find. We are both interested in these results, even if they don't provide much use.
+
+
+
+```{r, include=FALSE}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+```
+
+# Clean
+The data is very messy. It includes huge texts of job description and other not useful columns. I just want to visualize this data quickly and easily. I will remove some of these columns that don't provide useful information for this project. These texts could definitely be useful later if we find some job openings that might be a fit for us!
+
+Tidyverse is very useful for this.
+
+```{r, echo=FALSE}
+nyc_jobs <- read_csv("Data/nyc-jobs.csv") %>% 
+  ungroup() %>% 
+  select(-`Job ID`, -`Title Code No`, -`Job Description`, -`Minimum Qual Requirements`, -`Preferred Skills`, -`Additional Information`, -`To Apply`, -`Residency Requirement`, -`Recruitment Contact`, -`Post Until`, -`Posting Updated`, -`Process Date`, -`Work Location 1`, -`Work Location`, -`Posting Type`, -Level, -`Salary Frequency`) %>%
+  as_tibble()
+```
+
+I wanted to create a column with the average salary because the salary range columns aren't too useful.
+
+```{r}
+nyc_jobs$avgsalary <- (nyc_jobs$`Salary Range From` + nyc_jobs$`Salary Range To`)/2
+```
+
+
+# Creating Subsets
+
+I created a subset searching for certain keywords in the job titles for both me and my wife.
+
+
+```{r}
+nic_nyc_jobs <- nyc_jobs %>%
+  ungroup() %>%
+  select(-`Salary Range From`, -`Salary Range To`) %>%
+  filter(avgsalary > 10000, nyc_jobs$`# Of Positions` < 100, str_detect(nyc_jobs$`Business Title` , '\\b(Analyst|Scientist|Data|Market|Research|Machine|Learning|Processing|Mining|Statistician|Statistics|Analytics)\\b'))
+
+
+sadie_nyc_jobs <- nyc_jobs %>%
+  ungroup() %>%
+  select(-`Salary Range From`, -`Salary Range To`) %>%
+  filter(avgsalary > 10000, nyc_jobs$`# Of Positions` < 100, str_detect(nyc_jobs$`Business Title` , '\\b(Design|Stylist|Designer|Textile|Textiles|Fashion|Creative|Buyer)\\b'))
+```
+# Visualize
+The data is a little cleaner to visualize. It only includes the useful columns that might give use some info. I converted agency to factor and converted the "Posting Date" column into dates.
+
+```{r}
+nyc_jobs$Agency <- as.factor(nyc_jobs$Agency)
+nic_nyc_jobs$`Posting Date` <-    as.Date(nic_nyc_jobs$`Posting Date`)
+
+nic_nyc_jobs <- nic_nyc_jobs %>%
+  filter(nic_nyc_jobs$`Posting Date` > as.Date("2018-09-01"))
+sadie_nyc_jobs <- sadie_nyc_jobs %>%
+  filter(sadie_nyc_jobs$`Posting Date` > as.Date("2018-09-01"))
+
+```
+
+Some visualizations for my job prospects. This is bar chart of the number of job postings per agency.
+
+```{r}
+theme_set(theme_classic())
+nic_agency <- as.data.frame(table(nic_nyc_jobs$Agency))
+colnames(nic_agency) <- c("Agency", "Frequency")
+nic_plot <- ggplot(nic_agency, aes(Agency, Frequency))
+nic_plot + geom_bar(stat="identity", width = 0.5, fill="blue") + 
+  labs(title="Jobs per Agency", 
+       caption="Nyc Jobs") +
+  theme(axis.text.x = element_text(angle=65, vjust=0.5))
+```
+
+The most job postings come from the Department of Environment Protection, Human Rights Commission, and the Office of Payroll Administration.
+
+Due to the small number of postings in my wife's subset of data, visualization isn't needed. However, I decided to use a pie chart because she liked how it looked.
+
+
+```{r}
+sadie_pie <- ggplot(sadie_nyc_jobs, aes(x = "", fill = factor(Agency))) + 
+  geom_bar(width = 1) +
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="Agency", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of Agency", 
+       caption="Jobs per Agency") + 
+  scale_fill_brewer(palette = "RdPu")
+
+sadie_pie + coord_polar(theta = "y", start=0)
+
+ggplot(sadie_nyc_jobs, aes(x=Agency, y = avgsalary)) +
+  theme(axis.text.x = element_text(angle=40, vjust=0.5)) + 
+  geom_point(stat="identity", fill = "red")
+```
+
+
+This next graph looks at each agency on the x axis, the average salary on the y axis, and color in terms of the number of positions available. The majority of these jobs have only one opening but a few have more. 
+
+```{r}
+ggplot(nic_nyc_jobs, aes(x= Agency, y = avgsalary, color = `# Of Positions`)) +
+  theme(axis.text.x = element_text(angle=90, vjust=0.5)) + 
+  ylab("Average Salary") + ggtitle("Average Salary by Agency") + 
+  geom_point(stat="identity") +
+  scale_colour_gradient(low = "orange", high="black")
+
+
+```
+
+Overall, this information is good to keep around us as we apply for jobs and finish up school. I can target a few positions such as a quality assurance analyst with the fire department because there are a few openings and a decent salary.
+
+My wife has a decent shot within all the agencies because they have relatively the same number of openings. She should shoot for the Department of Transportation or the Department of Parks & Recreation though if she wants to have a higher salary.
