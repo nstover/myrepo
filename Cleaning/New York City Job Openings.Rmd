@@ -27,16 +27,32 @@ The data is very messy. It includes huge texts of job description and other not 
 Tidyverse is very useful for this.
 
 ```{r, echo=FALSE}
-nyc_jobs <- read_csv("Data/nyc-jobs.csv") %>% 
+nyc_jobs <- read_csv("Data/nyc-jobs.csv")
+nyc_jobs$avgsalary <- (nyc_jobs$`Salary Range From` + nyc_jobs$`Salary Range To`)/2
+nyc_jobs <- nyc_jobs %>%
+  ungroup() %>%
+  select(-`Salary Range From`, -`Salary Range To`)
+
+nyc_jobs_nested <- nyc_jobs %>% 
   ungroup() %>% 
   select(-`Job ID`, -`Title Code No`, -`Job Description`, -`Minimum Qual Requirements`, -`Preferred Skills`, -`Additional Information`, -`To Apply`, -`Residency Requirement`, -`Recruitment Contact`, -`Post Until`, -`Posting Updated`, -`Process Date`, -`Work Location 1`, -`Work Location`, -`Posting Type`, -Level, -`Salary Frequency`) %>%
-  as_tibble()
+  filter(avgsalary > 10000, nyc_jobs$`# Of Positions` < 100) %>%
+  group_by(Agency) %>%
+  nest() 
+
 ```
 
 I wanted to create a column with the average salary because the salary range columns aren't too useful.
 
 ```{r}
-nyc_jobs$avgsalary <- (nyc_jobs$`Salary Range From` + nyc_jobs$`Salary Range To`)/2
+
+avgsalary_nested <- nyc_jobs_nested%>%
+  mutate(mean_salary =map(data, ~mean(.x$avgsalary) ))
+
+
+salary_avg <- avgsalary_nested %>% 
+  unnest(mean_salary)
+
 ```
 
 
