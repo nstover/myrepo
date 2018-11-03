@@ -1,0 +1,244 @@
+---
+title: "League of Legends"
+author: "Nicholas Stover"
+date: "October 29, 2018"
+output: 
+  html_document:
+    theme: readable
+    code_folding: hide
+---
+
+```{r, include=FALSE}
+library(readr)
+library(tidyverse)
+library(caret)
+library(caretEnsemble)
+library(caTools)
+library(MASS)
+library(naivebayes)
+library(klaR)
+library(fastAdaboost)
+library(ISLR)
+library(ada)
+library(plyr)
+library(caTools)
+library(gbm)
+library(doParallel)
+numCores <- 4
+registerDoParallel(numCores)
+set.seed(100)
+game  <- read_csv("Data/stats1.csv/stats1.csv")
+
+```
+
+I love video games. League of Legends is a very popular game. I thought it would be interesting to see if I can predict match outcomes, based on the game stats. This might be items used, length of time alive, number of kills/deaths, etc.
+
+```{r}
+game$win[game$win == 1] <- "win"
+game$win[game$win == 0] <- "loss"
+game <- game %>%
+  as.tibble() 
+any(is.na(game$win))
+game$win <- as.factor(game$win)
+game$item1 <- as.factor(game$item1)
+game$item2 <- as.factor(game$item2)
+game$item3 <- as.factor(game$item3)
+game$item4 <- as.factor(game$item4)
+remove_cols <- nearZeroVar(game, names = TRUE, 
+                           freqCut = 2, uniqueCut = 20)
+all_cols <- names(game)
+game <- game[ , setdiff(all_cols, remove_cols)]
+```
+
+I removed the "id" column because it won't provide any information. There are no "NA" values in the data which makes fitting a model much easier! I also used caret's awesome nearZeroVar function to remove columns that have zero variance or close to it. This will speed up the model fitting process.
+
+First, I randomize the rows of the data to reduce risk of bias. Then, I create a data partition with 75% of the data put into a "training" set, and the other 25% of the data into a "testing" set. In machine learning, you can use the "training" set to fit a model and the "testing" set to test the model. This creates a model that can predict accurately when you get new data. In a way, it's like taking a test but also having the answers to make sure your answers are correct. This way you can use this test-taking strategy to take new tests and be sure that you will be getting a good amount of answers correct.
+
+I will use a cross validation as the resampling method. Cross validation makes it so outliers don't skew the RMSE so it creates multiple folds of the test and training sets and then averages the RMSE.
+
+The first model I will use is a logistic regression model. This is a good, basic first model choice.
+
+```{r}
+smallgametrain <- createDataPartition(y = game$win, p = .998, list = FALSE)
+small_game <- game[-smallgametrain,]
+small_game <- small_game[-1]
+```
+
+
+```{r, eval=FALSE}
+rows1 <- sample(nrow(small_game))
+small_game <- game[rows1, ]
+inTrain1 <- createDataPartition(y = small_game$win, p = .80, list = FALSE)
+training1 <- small_game[ inTrain1,]
+testing1 <- small_game[-inTrain1,]
+mycontrol1 <- trainControl(
+  method = "cv",
+  number = 10,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE, # IMPORTANT!
+  verboseIter = TRUE)
+
+mycontrol2 <- trainControl(
+  method = "cv",
+  number = 10,
+  summaryFunction = twoClassSummary)
+
+```
+
+```{r}
+model_glm <- train(win ~.,
+                   data=training1,
+                   method = "glm",
+                   trControl = mycontrol1, 
+                   tuneLength= 10)
+test_pred <- predict(model_glm, newdata = testing1)
+confusionMatrix(test_pred, testing1$win )
+p <- predict(model_glm, testing1, type="prob")
+colAUC(p, testing1[["win"]], plotROC = TRUE)
+```
+
+
+The first logistic regression model yields an 70.43% percent accuracy.
+
+The confusion matrix and ROC curve show pretty good results with logistic regression. ROC curves are a useful shortcut for summarizing the performance of a classifier over all possible thresholds. On the ROC curve graph, x is the probability of a false alarm, y is the sensitivity or true positive rate. To ensure the best model is chosen, the graph needs to stay as far as it can to the top left corner. The perfect model would go straight up the y-axis without curving, just hitting the corner perfectly.
+
+Due to the lack of computing power on my laptop, I will need to split the data into a smaller set to run the next few models. I create a small subset of the data. This leaves about 5000 observations which is a pretty good size to model on and will be much more time efficient.
+
+I am going to use a decision tree next. The decision tree yields a 74.94% accuracy. 
+
+
+```{r}
+dtree_fit <- train(
+  win ~.,
+  data = training1,
+  method = "rpart",
+  trControl = mycontrol1,
+  tuneLength = 10)
+test_pred1 <- predict(dtree_fit, newdata = testing1)
+confusionMatrix(test_pred1, testing1$win )
+p1 <- predict(dtree_fit, testing1, type="prob")
+colAUC(p1, testing1[["win"]], plotROC = TRUE)
+```
+
+
+Random forest yields 77.94% accuracy.
+
+
+```{r}
+model_randomforest <- train(
+  win~.,
+  tuneLength = 1,
+  data = training1,
+  method = "ranger",
+  trControl = trainControl(method = "cv", number = 10, verboseIter = TRUE)
+)
+test_pred1 <- predict(model_randomforest, newdata = testing1)
+confusionMatrix(test_pred1, testing1$win )
+```
+
+Linear Discriminant Analysis failed with errors.
+
+```{r}
+model_lda <- train(
+  win~.,
+  training1,
+  method="lda",
+  trControl=mycontrol1,
+    tuneLength = 10
+)
+test_pred1 <- predict(model_lda, newdata = testing1)
+confusionMatrix(test_pred1, testing1$win )
+```
+
+Boosted trees yields 77.44% accuracy.
+
+```{r}
+model_boosted <- train(
+  win~.,
+  training1,
+  method="ada",
+  trControl=mycontrol1
+)
+test_pred4 <- predict(model_boosted, newdata = testing1)
+confusionMatrix(test_pred4, testing1$win )
+```
+
+I used a glmnet model which is an extension of glm model with built in variable selection. It puts constraints on the coefficients to prevent overfitting. It also helps deal with collinearity (correlation among the predictors in a model). Unfortunately, glmnet only yielded around 76.44% accuracy.
+
+```{r}
+model_glmnet <- train(
+  win~.,
+  data = training1,
+  method = "glmnet",
+  trControl = mycontrol1
+)
+test_pred3 <- predict(model_glmnet, newdata = testing1)
+confusionMatrix(test_pred3, testing1$win )
+p3 <- predict(model_glmnet, testing1, type="prob")
+colAUC(p3, testing1[["win"]], plotROC = TRUE)
+
+```
+
+Naive bayes yields 50.88% accuracy.
+
+```{r}
+model_naivebayes <- train(
+  win~.,
+  training1,
+  method="naive_bayes",
+  trControl=mycontrol1
+)
+test_pred3 <- predict(model_naivebayes, newdata = testing1)
+confusionMatrix(test_pred3, testing1$win )
+```
+
+
+K Nearest Neighbors yields 60.65% accuracy.
+
+```{r}
+model_knn <- train(
+  win~.,
+  tuneLength = 20,
+  data = training1,
+  method = "knn",
+  trControl = mycontrol1
+)
+test_pred3 <- predict(model_knn, newdata = testing1)
+confusionMatrix(test_pred3, testing1$win )
+```
+
+Learning Vector Quantization fails with errors.
+
+```{r}
+model_lvq <- train(
+  win~.,
+  tuneLength = 5,
+  data = training1,
+  method = "lvq",
+  trControl = mycontrol2
+)
+```
+
+Support Vector machines failed with errors.
+
+```{r}
+svm_Linear <- train(
+  win ~.,
+  data = training1,
+  method = "svmLinear",
+  trControl=mycontrol1,
+  tuneLength = 10)
+test_pred3 <- predict(svm_Linear, newdata = testing1)
+confusionMatrix(test_pred3, testing1$win )
+```
+
+
+With this kind of accuracy, the model can be stored and used to predict match outcomes. This could be helpful for many gamers. They can take a closer look at the model and see which predictors were the most important and try to follow those predictors. Following the data will offer the best results, no matter what aspect of life.
+
+
+
+
+
+
+
+
