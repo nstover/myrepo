@@ -64,14 +64,12 @@ I created a subset searching for certain keywords in the job titles for both me 
 ```{r}
 nic_nyc_jobs <- nyc_jobs %>%
   ungroup() %>%
-  select(-`Salary Range From`, -`Salary Range To`) %>%
-  filter(avgsalary > 10000, nyc_jobs$`# Of Positions` < 100, str_detect(nyc_jobs$`Business Title` , '\\b(Analyst|Scientist|Data|Market|Research|Machine|Learning|Processing|Mining|Statistician|Statistics|Analytics)\\b'))
+  filter(str_detect(nyc_jobs$`Business Title` , '\\b(Analyst|Scientist|Data|Market|Research|Machine|Learning|Processing|Mining|Statistician|Statistics|Analytics)\\b'))
 
 
 sadie_nyc_jobs <- nyc_jobs %>%
   ungroup() %>%
-  select(-`Salary Range From`, -`Salary Range To`) %>%
-  filter(avgsalary > 10000, nyc_jobs$`# Of Positions` < 100, str_detect(nyc_jobs$`Business Title` , '\\b(Design|Stylist|Designer|Textile|Textiles|Fashion|Creative|Buyer)\\b'))
+  filter(str_detect(nyc_jobs$`Business Title` , '\\b(Design|Stylist|Designer|Textile|Textiles|Fashion|Creative|Buyer)\\b'))
 ```
 # Visualize
 The data is a little cleaner to visualize. It only includes the useful columns that might give use some info. I converted agency to factor and converted the "Posting Date" column into dates.
@@ -97,7 +95,7 @@ nic_plot <- ggplot(nic_agency, aes(Agency, Frequency))
 nic_plot + geom_bar(stat="identity", width = 0.5, fill="blue") + 
   labs(title="Jobs per Agency", 
        caption="Nyc Jobs") +
-  theme(axis.text.x = element_text(angle=65, vjust=0.5))
+  theme(axis.text.x = element_text(angle=90, vjust=0.5))
 ```
 
 The most job postings come from the Department of Environment Protection, Human Rights Commission, and the Office of Payroll Administration.
