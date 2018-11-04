@@ -90,7 +90,7 @@ model_glm <- train(win ~.,
                    data=training1,
                    method = "glm",
                    trControl = mycontrol1, 
-                   tuneLength= 10)
+                   tuneLength= 20)
 test_pred <- predict(model_glm, newdata = testing1)
 confusionMatrix(test_pred, testing1$win )
 p <- predict(model_glm, testing1, type="prob")
@@ -129,11 +129,13 @@ model_randomforest <- train(
   win~.,
   tuneLength = 1,
   data = training1,
-  method = "ranger",
+  method = "rf",
+  importance=TRUE,
   trControl = trainControl(method = "cv", number = 10, verboseIter = TRUE)
 )
 test_pred1 <- predict(model_randomforest, newdata = testing1)
 confusionMatrix(test_pred1, testing1$win )
+varImp(model_randomforest)
 ```
 
 Linear Discriminant Analysis failed with errors.
@@ -233,7 +235,9 @@ confusionMatrix(test_pred3, testing1$win )
 ```
 
 
-With this kind of accuracy, the model can be stored and used to predict match outcomes. This could be helpful for many gamers. They can take a closer look at the model and see which predictors were the most important and try to follow those predictors. Following the data will offer the best results, no matter what aspect of life.
+The model can be stored and used to predict match outcomes. This could be helpful for many gamers. They can take a closer look at the model and see which predictors were the most important and try to follow those predictors. Following the data will offer the best results, no matter what aspect of life.
+
+In this case, number of deaths was the most important variable, followed by assists and gold earned. I'm guessing that the more times you die, the more likely you are to lose the match. On the other hand, getting more assists and earning more gold will make you more likely to win the match.
 
 
 
