@@ -1,0 +1,294 @@
+---
+title: "Spotter by Stover"
+author: "Nicholas Stover"
+output: 
+  html_document:
+    theme: readable
+    code_folding: hide
+    toc: true
+---
+
+# Background
+
+My passion is in statistics and mathematics. They are the tools I want to use to start and sustain a career. My favorite hobby is working out and playing sports. I really enjoy training my body and helping myself to be healthier and stronger. God gave us these bodies and I believe it is our responsibilities to take care of them and improve them in every way that we can. 
+
+One of my many dreams is to help others start their journey to improve their health. I want to accomplish this dream by creating an app. This is the end goal. For my senior project, I wanted to start the process of building the app by doing an analysis of fitness data. This gives me a good start on the app by having some background information. I will analyze this fitness data using statistical tools. I created a fitness survey with health, fitness, and diet related questions. My plan is to analyze these surveys, find out what stands out, and create a quiz to provide a health plan to an individual, based on the answers they provide.
+
+# Research
+
+I found this article to give some basis to my analysis. Essentially, the research and reasoning behind my whole idea. The article below was taken from a study proving that exercising can prevent many non-communicable diseases. The fourth leading cause of death is inactivity because of this.
+
+"The relationship between physical inactivity and poorer health outcomes has become a well-established major public health concern over recent decades. In fact, physical inactivity is the fourth leading cause of death and contributes to the other causes such as heart disease, diabetes and cancer. Sedentary lifestyles are often cited as one of the largest contributing factors towards the development of chronic disease, premature mortality and morbidity."
+
+This next article gives some information on supplementation. I believe strongly in taking additional supplements if one can afford them to improve their health.
+
+"Some dietary supplements are recommended to athletes based on data that supports improved exercise performance. Other dietary supplements are not ergogenic per se, but may improve health, adaptation to exercise, or recovery from injury, and so could help athletes to train and/or compete more effectively. In this review, we describe several dietary supplements that may improve health, exercise adaptation, or recovery. Creatine monohydrate may improve recovery from and adaptation to intense training, recovery from periods of injury with extreme inactivity, cognitive processing, and reduce severity of or enhance recovery from mild traumatic brain injury (mTBI). Omega 3-fatty acid supplementation may also reduce severity of or enhance recovery from mTBI. Replenishment of vitamin D insufficiency or deficiency will likely improve some aspects of immune, bone, and muscle health. Probiotic supplementation can reduce the incidence, duration, and severity of upper respiratory tract infection, which may indirectly improve training or competitive performance. Preliminary data show that gelatin and/or collagen may improve connective tissue health. Some anti-inflammatory supplements, such as curcumin or tart cherry juice, may reduce inflammation and possibly delayed onset muscle soreness (DOMS)."
+
+# Introduction to the Data
+
+```{r, include = FALSE}
+set.seed(100)
+library(trelliscopejs)
+library(tidyverse)
+library(skimr)
+library(caret)
+library(readr)
+library(mosaic)
+library(pander)
+library(car)
+library(DT) 
+library(resample)
+library(ggplot2)
+library(MASS)
+library(readr)
+library(DT)
+library(mosaic)
+library(pander)
+library(ggplot2)
+library(agricolae)
+library(gplots)
+library(car)
+library(RcmdrMisc)
+cleanfit <- readRDS("C:/Users/nic-g/Desktop/Repository/nstover/Data/cleanfit.rds")
+cleanfit$weekly_intense_exercise <- as.integer(cleanfit$weekly_intense_exercise)
+
+```
+
+I will talk about the survey first. I asked many questions in the survey. It began with basic numbers such as height, weight, and age. Then there were many questions about how many times people exercised, what kind of exercises that they did, and how they would rate their health. Other questions included experience, motivation, goals, body fat levels, supplements, diets, meal plans and free time. 
+
+Here is a link to the survey:
+
+https://docs.google.com/forms/d/e/1FAIpQLSce384mU2P8RrjCNNzveS0yX051EmMUqYS0QTcf0rhMM1fDsQ/viewform?usp=sf_link
+
+Here is a sample of the data:
+
+```{r}
+pander(head(cleanfit), n=2L)
+```
+
+# Questions
+
+A few questions came to mind when playing with the data and looking through it.
+
+1. What is the greatest predictor of body fat?
+2. Does lifting weights improve one's perceived health rating?
+3. Does workout frequency have an effect on body fat?
+4. Which diet seemed to work best?
+5. Which goals, motivations, and obstacles improved or deteriorated progress?
+
+I hope to be able to be able to answer these questions in order to make an accurate quiz and app.
+
+# Body Fat Analysis
+
+```{r}
+cleanfit$workout_frequency = factor(cleanfit$workout_frequency,levels(cleanfit$workout_frequency)[c(3,4,6,5,2,1)])
+theme_set(theme_bw())
+plot <- ggplot(cleanfit, aes(body_fat))
+plot + geom_bar(aes(fill=workout_frequency), width = .75) + 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Workout Frequency") +
+  xlab("Body Fat (%)") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Frequency of Workouts")) +
+  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+model3 <- lm(body_fat~workout_frequency, data = cleanfit)
+pander(summary(model3))
+```
+
+The first plot shows a trend. The more frequent an individual works out, the lower level of body fat they have. This makes obvious sense. I know that this doesn't always apply as someone people have naturally very low levels of body fat. When fitting a model to look at the relationship between body fat and workout frequency, the biggest difference seemed to show when you work out four or more times per week.
+
+```{r}
+plot1 <- ggplot(cleanfit, aes(body_fat))
+plot1 + geom_bar(aes(fill=health_rating), width = .75) + 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Health Rating") +
+  xlab("Body Fat") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Rating")) +
+  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+```
+
+This plot says the lower the health rating that someone self-assessed, the higher amount of body fat they had. This lets us know that self-assessments can be helpful. People are probably pretty accurate at self-assessing, I think this is because people can be pretty hard on themselves.
+
+I want to fit a model to the data. I want to see which variables have the most importance in predicting body fat levels. A statistical model is a mathematical model that embodies a set of statistical assumptions concerning the generation of some sample data and similar data from a larger population. In easier terms, it's just a bunch of numbers that make up the value you want to predict. For example, if we are making a model for body fat, we want to know what survey answers make up that body fat number. Eventually you will find a model that can predict body fat. The data learns from itself to be able to make predictions. So for body fat, health rating and workout frequency and using free weights or not can possibly be used to predict body fat. R will use statistics to assign coefficients to these variables which will determine the value. 
+
+```{r}
+model <- lm(body_fat ~health_rating + workout_frequency + sports + seeing_results + obstacles + goal1 + exercise_plan + pre_workout + intermittent_fasting_tried + intermittent_fasting_worked + nutritional_value + time + free_weights , data = cleanfit)
+
+pander(summary(model))
+pander(model$coefficients)
+plot(model, which=1:2)
+```
+
+I have revealed the coefficients for the model that I chose. Each of these terms have shown significance. I used a signifiance level of .10. This means that anything with a p-value of .10 or lower, stands out. Statistically speaking, it calculates the probability of getting a value this extreme. Since .10 is 10%, I would say that getting this term only 10% of the time is noteworthy.
+
+Some of the terms are health rating, workout frequency, playing sports or not, seeing results as your motivation, obstacles, fitness goals, having an exercise plan or not, using preworkout or not, trying and succeeding with intermittent fasting, nutritional value of diet, spare time, and using free weights or not. These all make sense.
+
+Insights that I have gained so far is that you need to work out more to be able to have a lower body fat level.
+
+I checked the requirements for this model. Checking requirements is important because we want to make sure the data is normally distributed. If it is, then we can make important assumptions of the data and formally believe the results when we start modeling with linear regression.
+
+The first requirement is making sure that the variance is constant. According to the Residuals vs Fitted plot, the variance appears to be constant. A quick way of checking is to look at the width of the points in the graph and make sure they seem to keep a similar width all the way through. This requirement appears to be met. 
+
+Another requirement is to make sure the residuals are normally distributed. According to the second plot, I do think this requirement is met. The dots should fall closely to the line. 
+
+A second way of checking is the following plot. The histogram needs to have a bell shaped curve. A qq plot is also another way of double checking. The dots in need to be in the lines in order for the data to be normally distributed. This requirement is met. 
+
+```{r}
+hist(model$residuals)
+qqPlot(model$residuals)
+```
+
+# Weightlifting
+
+```{r}
+plot2 <- ggplot(cleanfit, aes(health_rating))
+plot2 + geom_bar(aes(fill=free_weights), width = .75) + 
+  theme(axis.text.x = element_text(angle=0, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Health Rating") +
+  xlab("Health Rating") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Weights or No")) +
+  scale_fill_manual(values=c("#0A100D", "#960005"))
+```
+
+Non-lifters tend to rate themselves lower. This really strengthens my position of weightlifting being very good for your health.
+
+```{r}
+plot3 <- ggplot(cleanfit, aes(goal1))
+plot3 + geom_bar(aes(fill=free_weights), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Goals") +
+  xlab("Goal") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Weights or No")) +
+  scale_fill_manual(values=c("#0A100D","#960005"))
+```
+
+Both non-lifters and lifters tend to have a goal of decreasing body fat.
+
+```{r}
+plot4 <- ggplot(cleanfit, aes(body_fat))
+plot4 + geom_bar(aes(fill=free_weights), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Body Fat vs. Weights") +
+  xlab("Body Fat") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Weights or No")) +
+  scale_fill_manual(values=c("#0A100D", "#960005"))
+model4 <- lm(body_fat ~ free_weights, data = cleanfit)
+pander(summary(model4))
+
+```
+
+People with higher body fat levels tend to not lift weights. This is a lot of evidence to support lifting weights. This will strengthen my belief of weightlifting and incorporating it into my program. This model almost shows great significance in lifting weights.
+
+
+# Frequency of Lifting
+
+```{r}
+
+plot5 <- ggplot(cleanfit, aes(health_rating))
+plot5 + geom_bar(aes(fill=workout_frequency), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Health Rating") +
+  xlab("Health Rating") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Workout Frequency")) +
+  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+
+
+```
+
+Lower health ratings tend to go to those who work out only once a month with the higher health ratings going to people who work out more. 
+
+
+```{r}
+cleanfit$time = factor(cleanfit$time,levels(cleanfit$time)[c(4,3,1,2)])
+plot6 <- ggplot(cleanfit, aes(body_fat))
+plot6 + geom_bar(aes(fill=time), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Body Fat vs. Time") +
+  xlab("Body Fat") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Spare Time")) +
+  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+
+model6 <- lm(body_fat~time, data=cleanfit)
+pander(summary(model6))
+```
+
+Surprisingly time seemed to be a non-factor. Busier people were equally low and high body fat. This means that even busy people can still make time to exercise and can still have lower body fat levels, if that is their goal. Again, this isn't for sure accurate due to some having lower body fat levels by genetics.
+
+If we fit a linear model to this, There is a signficiant difference in body fat levels in people who are a little busy or busy. This leads me to believe that even if you are busy, you can still be in good health.
+
+
+```{r, warning=FALSE}
+options(scipen=999)  # turn-off scientific notation like 1e+48
+
+
+# Scatterplot
+gg <- ggplot(cleanfit, aes(x=age, y=workout_minutes)) + 
+  geom_point(aes(col=body_fat, size=experience)) + 
+  geom_smooth(method="loess", se=F) + 
+  xlim(c(0, 70)) + 
+  ylim(c(0, 500)) + 
+  labs(subtitle="Area Vs Population", 
+       y="Minutes spent working out", 
+       x="Age", 
+       title="Scatterplot", 
+       caption = "Source: midwest")
+
+plot(gg)
+
+model8 <- lm(body_fat~experience+workout_minutes+age, data=cleanfit)
+pander(summary(model8))
+```
+
+This plot shows age on the x axis with time spent working out on the y axis. The size of the dots show the experience level of the individual and the color is the body fat level. Body fat seemed to be independent of age, same with the workout minutes. However, the big dots indicating low experience still had lower body fat levels. This is nudging me to the belief that all ages, experiences and time spent working out doesn't matter. Anyone can improve their health no matter what your age, experience, or how much spent working out. The model surprisingly showed that age has a significant factor on body fat. 
+
+```{r}
+cleanfit$body_fat <- as.integer(cleanfit$body_fat)
+theme_set(theme_classic())
+
+# Plot
+g <- ggplot(cleanfit, aes(body_fat))
+g + geom_density(aes(fill=factor(experience)), alpha=0.8) + 
+    labs(title="Density plot", 
+         subtitle="Body Fat vs. Experience",
+         caption="Fitness Surveys",
+         x="Body Fat",
+         fill="Experience")
+```
+
+I think the most important insight into this graph is the fact that learning more tends to show lower body fat levels. This is an important insight because most fitness information is free online! There are also so many programs that are at home or require the most basic equipment.
+
+```{r}
+g <- ggplot(cleanfit, aes(workout_frequency, body_fat))
+g + geom_boxplot(varwidth=T, fill="red") + 
+    labs(title="Box plot", 
+         subtitle="Body Fat vs. Workout Frequency",
+         caption="Source: Fitness Surveys",
+         x="Workout Frequency",
+         y="Body Fat") +
+  theme(axis.text.x = element_text(angle=10, vjust=0.6))
+```
+
+Here's another graph to drill in the point that working out as little as twice a week provides results.
+
+# Conclusion
+
+The point of this analysis was to prove the need for exercise for every human. The research and statistics proves this. I want to be able to create an app for beginners to motivate them to start exercising. It is a very important thing to do. Research proves this as stated in the articles listed in my works cited. Let's fight against inactivity and disease by exercising. God says our bodies are temples and to me that means we need to keep it as healthy as possible. Exercising for 30-60 minutes per day is small sacrifice that we can make to do this. It doesn't have to be something that we don't like but we need to be doing it. God and our health will thank us for it.
+
+# Works Cited
+
+1. Howitt, Scott, et al. “Exercise as a Vital Sign: A Preliminary Pilot Study in a Chiropractic Setting.” Journal of the Canadian Chiropractic Association, vol. 61, no. 3, Dec. 2017, pp. 231–238. EBSCOhost, byui.idm.oclc.org/login?url=https://search-ebscohost-com.byui.idm.oclc.org/login.aspx?direct=true&db=awh&AN=127545019&site=eds-live.
+
+2. Rawson, Eric S., et al. “Dietary Supplements for Health, Adaptation, and Recovery in Athletes.” International Journal of Sport Nutrition & Exercise Metabolism, vol. 28, no. 2, Mar. 2018, p. 188. EBSCOhost, byui.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?direct=true&db=edb&AN=130206104&site=eds-live.
