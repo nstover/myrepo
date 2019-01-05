@@ -88,10 +88,10 @@ plot + geom_bar(aes(fill=workout_frequency), width = .75) +
   theme(axis.text.x = element_text(angle=90, vjust=0.6)) +
   labs(title="Categorywise Bar Chart", 
        subtitle="Workout Frequency") +
-  xlab("Body Fat (%)") +
+  xlab("Body Fat") +
   ylab("Count") +
   guides(fill=guide_legend(title="Frequency of Workouts")) +
-  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+  scale_fill_brewer(palette="RdBu")
 model3 <- lm(body_fat~workout_frequency, data = cleanfit)
 pander(summary(model3))
 ```
@@ -107,7 +107,7 @@ plot1 + geom_bar(aes(fill=health_rating), width = .75) +
   xlab("Body Fat") +
   ylab("Count") +
   guides(fill=guide_legend(title="Rating")) +
-  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+  scale_fill_brewer(palette="RdBu")
 ```
 
 This plot says the lower the health rating that someone self-assessed, the higher amount of body fat they had. This lets us know that self-assessments can be helpful. People are probably pretty accurate at self-assessing, I think this is because people can be pretty hard on themselves.
@@ -152,7 +152,7 @@ plot2 + geom_bar(aes(fill=free_weights), width = .75) +
   xlab("Health Rating") +
   ylab("Count") +
   guides(fill=guide_legend(title="Weights or No")) +
-  scale_fill_manual(values=c("#0A100D", "#960005"))
+  scale_fill_brewer(palette="Set1")
 ```
 
 Non-lifters tend to rate themselves lower. This really strengthens my position of weightlifting being very good for your health.
@@ -166,7 +166,7 @@ plot3 + geom_bar(aes(fill=free_weights), width = .75) +
   xlab("Goal") +
   ylab("Count") +
   guides(fill=guide_legend(title="Weights or No")) +
-  scale_fill_manual(values=c("#0A100D","#960005"))
+  scale_fill_brewer(palette="Set1")
 ```
 
 Both non-lifters and lifters tend to have a goal of decreasing body fat.
@@ -180,7 +180,7 @@ plot4 + geom_bar(aes(fill=free_weights), width = .75) +
   xlab("Body Fat") +
   ylab("Count") +
   guides(fill=guide_legend(title="Weights or No")) +
-  scale_fill_manual(values=c("#0A100D", "#960005"))
+  scale_fill_brewer(palette="Set1")
 model4 <- lm(body_fat ~ free_weights, data = cleanfit)
 pander(summary(model4))
 
@@ -201,7 +201,7 @@ plot5 + geom_bar(aes(fill=workout_frequency), width = .75) +
   xlab("Health Rating") +
   ylab("Count") +
   guides(fill=guide_legend(title="Workout Frequency")) +
-  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+  scale_fill_brewer(palette="Set1")
 
 
 ```
@@ -219,7 +219,7 @@ plot6 + geom_bar(aes(fill=time), width = .75) +
   xlab("Body Fat") +
   ylab("Count") +
   guides(fill=guide_legend(title="Spare Time")) +
-  scale_fill_manual(values=c("#0A100D", "#252A2B", "#555358", "#823437", "#84111A", "#960005"))
+  scale_fill_brewer(palette="Set1")
 
 model6 <- lm(body_fat~time, data=cleanfit)
 pander(summary(model6))

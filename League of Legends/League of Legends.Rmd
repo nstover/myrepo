@@ -27,7 +27,8 @@ library(doParallel)
 numCores <- 4
 registerDoParallel(numCores)
 set.seed(100)
-game  <- read_csv("Data/stats1.csv/stats1.csv")
+game  <- read_csv("stats1.csv")
+
 
 ```
 

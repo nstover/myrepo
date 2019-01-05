@@ -1,0 +1,225 @@
+---
+title: "SQl"
+author: "Nicholas Stover"
+output: 
+  html_document:
+    theme: readable
+    code_folding: hide
+    toc: true
+---
+
+```{r, include=FALSE}
+library(RMySQL)
+library(ggplot2)
+library(tidyverse)
+library(pander)
+library(caret)
+drv = dbDriver("MySQL")
+con = dbConnect(drv, user="", password = "", dbname="", host="")
+dbListTables(con)
+job  <- dbReadTable(con, name = "job")
+event <- dbReadTable(con, name = "event")
+candidate <- dbReadTable(con, name = "candidate")
+employer <- dbReadTable(con, name = "employer")
+work_experience <- dbReadTable(con, name = "work_experience")
+event <- dbReadTable(con, name = "event")
+work_experience$duration[work_experience$duration == ""] <- NA
+sum(is.na(work_experience$duration))
+work_experience$within_date[work_experience$within_date == ""] <- NA
+sum(is.na(work_experience$within_date))
+work_experience1 <- work_experience %>%
+  na.omit()
+work_experience1$duration[work_experience1$duration == "+3 Years"] <- "3+ Years"
+work_experience1$within_date[work_experience1$within_date == "Currently Working"] <- "Currently working"
+work_experience1$within_date[work_experience1$within_date == "More than 2 years"] <- "More than 2 years ago"
+work_experience1$within_date <- as.factor(work_experience1$within_date)
+work_experience1$duration <- as.factor(work_experience1$duration)
+work_experience1$position_name <- as.factor(work_experience1$position_name)
+
+work_experience1$within_date = factor(work_experience1$within_date,levels(work_experience1$within_date)[c(1,4,3,2)])
+work_experience1$duration = factor(work_experience1$duration,levels(work_experience1$duration)[c(4,1,2,3)])
+```
+
+
+
+1st part:
+
+# Candidate Quality
+
+
+```{r}
+theme_set(theme_bw())
+plot <- ggplot(work_experience1, aes(within_date))
+plot + geom_bar(aes(fill=duration), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Current Job status vs. Time in the Job ") +
+  xlab("Current Work Status/History") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Current Duration")) +
+  scale_fill_brewer(palette="Set1")
+```
+
+1. From an initial look at the data and the information it provides, I would say that the current work status is a good indicator of candidate quality. Adding to the that, the duration would also provide information about candidate quality. From a look at the bar graph below, Those who are currently working or worked within the last year, tend to have a bigger chance of working for 3+ years than cadidiates who haven't worked in a while. I would say that the more recent a candidate has worked, the stronger they are as a candidate. Additionally, I would say that those who have work experience with longer spans of time would be stronger as candidates. I can't speak for every situation but I would say in my own opinion that those who work more and for longer are much stronger candidates. History speaks for itself so looking at the data, those who have long work experience or have current or recent jobs tend to seem like stronger candidates.
+
+# Percentage of Qualified Candidates
+
+
+```{r, warning=FALSE}
+strong_candidates <- subset(work_experience1, within_date == "Currently working" | (within_date == "Within the last year" & (duration == "3+ Years" | duration == "2-3 Years" | duration == "1-2 Years")))
+n1 <- nrow(strong_candidates)
+n <- nrow(work_experience1)
+(n1/n)* 100
+```
+
+2. Approximately 57.58 % of applicants are strong candidates. That being said, I don't know exactly what the guidelines are for strong candidates and would need some more direction, but in my estimation 57.58 % of applicants are strong candidates. This is a good number because it means about 1 in every 2 applicants is a strong candidates. This provides a lot of strong choices for employers.
+
+# Ranking of Applicant Importance
+
+If graph below isn't viewing click the file button.
+
+```{r}
+
+behavior <- merge(job,work_experience, by = "position_name")
+behavior$position_name <- as.factor(behavior$position_name)
+behavior1 <- subset(behavior, within_date == "Currently working" | (within_date == "Within the last year" & (duration.y == "3+ Years" | duration.y == "2-3 Years" | duration.y == "1-2 Years")))
+behavior1$within_date <- as.factor(behavior1$within_date)
+behavior1[behavior1 == ""] <- NA
+#sum(is.na(behavior1))
+behavior2 <- behavior1 %>%
+  na.omit()
+
+
+options(scipen=999)  # turn-off scientific notation like 1e+48
+behavior2$duration[behavior2$duration.y == "+3 Years"] <- "3+ Years"
+behavior2$within_date[behavior2$within_date == "Currently Working"] <- "Currently working"
+
+
+behavior3 <- subset(behavior2, salary_period == "HOUR")
+behavior3$duration.y[behavior3$duration.y == "+3 Years"] <- "3+ Years"
+behavior3$duration.y <- as.factor(behavior3$duration.y)
+
+behavior3$duration.y = factor(behavior3$duration.y,levels(behavior3$duration.y)[c(4,1,2,3)])
+behavior3$salary <- as.integer(behavior3$salary)
+behavior3$duration.x <- as.factor(behavior3$duration.x)
+behavior3$required_work_experience <- as.factor(behavior3$required_work_experience)
+behavior3$job_type <- as.factor(behavior3$job_type)
+
+library(trelliscopejs)
+local_dir <- getwd()
+plot <- ggplot(behavior3, aes(within_date))
+plot + geom_bar(aes(fill=duration.y), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Current Job status vs. Time in the Job ") +
+  xlab("Current Work Status/History") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Current Duration")) +
+  scale_fill_brewer(palette="Set2") +
+  facet_trelliscope(~ duration.x, nrow = 2, ncol = 2, width = 750, path =local_dir)
+
+
+
+model8 <- glm(duration.y~salary+duration.x+ job_type + within_date , data=behavior3, family = "binomial")
+pander(summary(model8))
+pander(varImp(model8))
+```
+
+3. The graphs above show that the majority of strong candidates desire permanent work. Permanent work also comes with a higher mean hourly wage. They also desire full time work over part time work.
+
+When fitting a model to roughly predict strong candidates, the ranking of importance goes:
+
+1. Permanent or Temporary work
+2. Full time or Part time
+3. salary
+
+
+```{r}
+plot <- ggplot(behavior3, aes(job_type))
+plot + geom_bar(aes(fill=within_date), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Job Hours vs. Current Work History") +
+  xlab("Job Hours") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Current Work History")) +
+  scale_fill_brewer(palette="Set3")
+```
+
+
+# Employer Preselection
+
+```{r}
+plot <- ggplot(behavior3, aes(required_work_experience))
+plot + geom_bar(aes(fill=duration.x), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Employer's Required Experience vs. Permanent/Temporary") +
+  xlab("Required Experience") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Permanent/Temporary")) +
+  scale_fill_brewer(palette="PRGn")
+```
+
+```{r}
+plot <- ggplot(behavior3, aes(required_work_experience))
+plot + geom_bar(aes(fill=job_type), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Employer's Required Experience vs. Permanent/Temporary") +
+  xlab("Required Experience") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Permanent/Temporary")) +
+  scale_fill_brewer(palette="PRGn")
+```
+
+4. According to these graphs, employers seem to be preselecting for primarily 1-2 years or no experience for their positions. It also seems that they preselect to have permanent workers and full time workers. This is good since importance of candidates are these things.
+
+
+
+```{r, echo=FALSE}
+library(ggplot2)
+library(scales)
+theme_set(theme_classic())
+
+# Plot
+ggplot(behavior3, aes(x=required_work_experience, y=salary)) + 
+  geom_point(col="tomato2", size=3) +   # Draw points
+  geom_segment(aes(x=required_work_experience, 
+                   xend=required_work_experience, 
+                   y=min(salary), 
+                   yend=max(salary)), 
+               linetype="dashed", 
+               size=0.1) +   # Draw dashed lines
+  labs(title="Dot Plot", 
+       subtitle="Salary vs. Required Experience", 
+       caption="source: mpg") +  
+  coord_flip()
+```
+
+
+```{r}
+plot <- ggplot(behavior3, aes(duration.x))
+plot + geom_bar(aes(fill=duration.y), width = .75) + 
+  theme(axis.text.x = element_text(angle=40, vjust=0.6)) +
+  labs(title="Categorywise Bar Chart", 
+       subtitle="Current Job status vs. Time in the Job ") +
+  xlab("Current Work Status/History") +
+  ylab("Count") +
+  guides(fill=guide_legend(title="Current Duration")) +
+  scale_fill_brewer(palette="RdYlGn") 
+```
+
+I didn't learn too much information from introducing salary. I would suggest employers preselect candidates based on work experience and job status. They could get strong candidates by requiring little to no experience because even the experienced ones will apply and they should preselect candidates who want full time, permanent work, if they are able.
+
+2nd part:
+
+# Conclusion
+
+After doing this analysis and looking at the  app, I think looking at keywords and recommendations is a good route to go. I'm not exactly sure how the recommendation system is, but improving recommendations based on recent searches is a good route. Adding keywords to candidate bios, resumes, cover letters, etc. and employer postings would increase matches as well. It might also be useful to do a follow up call/email with candidates who get hired by the employer to get some sort of job satisfaction or rating that could be used on the employer profile. It could also be used by the recommendation system in case the candidate uses the app again, it would know that that type of job might not fit well with the candidate. I'm thinking sort of along the lines of Indeed or Netflix. That way the app could possibly use some sort of machine learning like k-Nearest neighbors to find recommendations and better matches.
+
+The app could also possibly track the job listings that an applicant looks at and doesn't apply to. This could help the recommendation system and use reinforcement learning which will punish the algorithm for failing (viewed but not applied post) and reward the algorithm for success (viewed and applied post).
+
+I think analyzing the data using decision might provide some useful insights and I would have liked to be able to do that in this analysis but did not have enough time. It could provide some very interpretable, useful results.
+
+On a side note, I think the Instagram page should keep growing, possibly using Instabot or some other tool to generate growth and free marketing. This way the word will travel far and eventually get candidates to comment and engage with the page so that the app can grow.
